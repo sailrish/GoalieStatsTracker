@@ -43,9 +43,20 @@ class GameStore: ObservableObject {
         return result
     }
 
+    /// Whether a season with this name already exists, comparing case- and
+    /// whitespace-insensitively so "Fall 2024" and "fall 2024" are the same
+    /// season. `excluding` skips one existing name, letting a season be renamed
+    /// to a different casing of itself.
+    func seasonExists(_ name: String, excluding excludedName: String? = nil) -> Bool {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        return seasons.contains { season in
+            season != excludedName && season.caseInsensitiveCompare(trimmed) == .orderedSame
+        }
+    }
+
     func addSeason(named name: String) {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
-        guard trimmed.isEmpty == false, seasons.contains(trimmed) == false else { return }
+        guard trimmed.isEmpty == false, seasonExists(trimmed) == false else { return }
         seasonOrder.append(trimmed)
         persistSeasonOrder()
         markSeasonsNeedsPush()
@@ -146,6 +157,43 @@ class GameStore: ObservableObject {
             } catch {}
         }
         _  = await task.value
+    }
+
+    /// Renames a season locally and immediately: updates the explicit ordering,
+    /// every game that references it, and the on-disk file so the new name shows
+    /// up right away as the user types. Deliberately does *not* touch iCloud —
+    /// call `syncRenamedSeason` once editing ends so a CloudKit write isn't made
+    /// on every keystroke. No-ops (returning false) if the new name is blank,
+    /// unchanged, or collides with a different existing season.
+    @discardableResult
+    func renameSeasonLocally(from oldName: String, to newName: String) -> Bool {
+        let trimmed = newName.trimmingCharacters(in: .whitespaces)
+        guard trimmed.isEmpty == false, trimmed != oldName else { return false }
+        guard seasonExists(trimmed, excluding: oldName) == false else { return false }
+
+        objectWillChange.send()
+        if let index = seasonOrder.firstIndex(of: oldName) {
+            seasonOrder[index] = trimmed
+            persistSeasonOrder()
+        }
+        for game in storage where game.seasonName == oldName {
+            game.seasonName = trimmed
+        }
+        if let data = try? JSONEncoder().encode(storage), let outfile = try? Self.fileURL() {
+            try? data.write(to: outfile)
+        }
+        return true
+    }
+
+    /// Pushes a finished local rename to iCloud. Marks the season list for push
+    /// and every game now under `seasonName` as unsynced, then kicks off a sync.
+    func syncRenamedSeason(named seasonName: String) {
+        markSeasonsNeedsPush()
+        pushSeasonsToCloud()
+        for game in storage where game.seasonName == seasonName {
+            markUnsynced(game.gameTime)
+        }
+        syncWithCloud()
     }
 
     func removeSeason(named seasonName: String) async throws {
