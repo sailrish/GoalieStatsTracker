@@ -38,6 +38,11 @@ struct RecordStatsView: View {
 
     @State var selectedGoalieName: String = ShotsData.defaultGoalieName
 
+    // Which quarters are "lit". While recording this is the set 1...current
+    // quarter; when viewing a past game it's the set of quarters whose shots are
+    // currently shown (all four by default).
+    @State var selectedQuarters: Set<Int> = [1]
+
     init() {
     }
 
@@ -49,6 +54,10 @@ struct RecordStatsView: View {
             self._shotsData = State(initialValue: ongoingGame!)
             self._pointsOn12Meter = State(initialValue: ongoingGame!.shots)
             self._selectedGoalieName = State(initialValue: ongoingGame!.goalies.first ?? ShotsData.defaultGoalieName)
+            // Resume at the furthest quarter already reached so earlier shots
+            // stay visible and recording continues forward from there.
+            let maxQuarter = ongoingGame!.shots.map { $0.quarter }.max() ?? 1
+            self._selectedQuarters = State(initialValue: Set(1...maxQuarter))
         }
     }
     
@@ -57,6 +66,9 @@ struct RecordStatsView: View {
         _shotsData = State(initialValue: shotsData)
         _pointsOn12Meter = State(initialValue: shotsData.shots)
         _selectedGoalieName = State(initialValue: shotsData.goalies.first ?? ShotsData.defaultGoalieName)
+        // A past game starts with every quarter shown; tapping a bubble filters
+        // that quarter's shots out.
+        _selectedQuarters = State(initialValue: [1, 2, 3, 4])
         loadPastView = true
         disable = true
         self.popToSeasonsView = popToSeasonsView
@@ -75,12 +87,25 @@ struct RecordStatsView: View {
                             onGoaliesChanged: persistGoalieChange
                         )
                         VStack {
-                            ShotSelectorsView(parent: self, geometry: proxy)
-                            FieldView(parent: self, geometry: proxy)
-                            ScoringView(parent: self, geometry: proxy)
-                            GameButtonsView(parent: self, geometry: proxy)
+                            Group {
+                                ShotSelectorsView(parent: self, geometry: proxy)
+                                FieldView(parent: self, geometry: proxy)
+                            }
+                            .disabled(disable)
+
+                            // The quarter selector stays interactive even when
+                            // viewing a past game, where it filters shots.
+                            QuarterSelectorView(
+                                mode: loadPastView ? .filter : .recording,
+                                selectedQuarters: $selectedQuarters
+                            )
+
+                            Group {
+                                ScoringView(parent: self, geometry: proxy)
+                                GameButtonsView(parent: self, geometry: proxy)
+                            }
+                            .disabled(disable)
                         }
-                        .disabled(disable)
 
                         if loadPastView == true && shotsData.seasonName.isEmpty {
                             Spacer()

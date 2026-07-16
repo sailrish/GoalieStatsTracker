@@ -23,7 +23,7 @@ struct FieldView: View {
     var draw12MeterCircle: some Gesture {
         SpatialTapGesture()
             .onEnded() { event in
-                let shot = _parent.shotsData.newShot(goal:_parent.isGoal, eightMeter:_parent.is8Meter, location:event.location, goalieName: _parent.selectedGoalieName)
+                let shot = _parent.shotsData.newShot(goal:_parent.isGoal, eightMeter:_parent.is8Meter, location:event.location, goalieName: _parent.selectedGoalieName, quarter: _parent.selectedQuarters.max() ?? 1)
                 if shot != nil {
                     _parent.pointsOn12Meter.append(shot!)
                     Task {
@@ -47,7 +47,7 @@ struct FieldView: View {
                 .resizable()
                 .scaledToFit()
                 .frame(maxWidth: .infinity, alignment: .bottomLeading)
-            ForEach(_parent.pointsOn12Meter.filter { $0.goalieName == _parent.selectedGoalieName }, id: \.self) { shot in
+            ForEach(_parent.pointsOn12Meter.filter { $0.goalieName == _parent.selectedGoalieName && _parent.selectedQuarters.contains($0.quarter) }, id: \.self) { shot in
                 ClickedCircle(currentLocation: _parent.shotsData.displayCoordinate(for: shot), circleColor: circleColor(wasItAGoal: shot.wasItAGoal, wasItA8Meter: shot.wasItEightMeter), geometry: _geometry)
             }
             if _parent.loadPastView == false {
