@@ -167,17 +167,21 @@ class ShotsData: ObservableObject, Codable, Identifiable, Hashable {
         var gridItCameFrom: Int
         var coordinate: CGPoint
         var goalieName: String = ShotsData.defaultGoalieName
+        // Which quarter (1...4) of the game this shot happened in. Shots
+        // recorded before this feature existed default to quarter 1.
+        var quarter: Int = 1
 
         enum CodingKeys: CodingKey {
-            case wasItAGoal, wasItEightMeter, gridItCameFrom, coordinate, goalieName
+            case wasItAGoal, wasItEightMeter, gridItCameFrom, coordinate, goalieName, quarter
         }
 
-        init(wasItAGoal: Bool, wasItEightMeter: Bool, gridItCameFrom: Int, coordinate: CGPoint, goalieName: String) {
+        init(wasItAGoal: Bool, wasItEightMeter: Bool, gridItCameFrom: Int, coordinate: CGPoint, goalieName: String, quarter: Int = 1) {
             self.wasItAGoal = wasItAGoal
             self.wasItEightMeter = wasItEightMeter
             self.gridItCameFrom = gridItCameFrom
             self.coordinate = coordinate
             self.goalieName = goalieName
+            self.quarter = quarter
         }
 
         init(from decoder: Decoder) throws {
@@ -187,6 +191,7 @@ class ShotsData: ObservableObject, Codable, Identifiable, Hashable {
             gridItCameFrom = try container.decode(Int.self, forKey: .gridItCameFrom)
             coordinate = try container.decode(CGPoint.self, forKey: .coordinate)
             goalieName = (try? container.decode(String.self, forKey: .goalieName)) ?? ShotsData.defaultGoalieName
+            quarter = (try? container.decode(Int.self, forKey: .quarter)) ?? 1
         }
 
         // https://stackoverflow.com/questions/41972319/make-struct-hashable
@@ -292,14 +297,14 @@ class ShotsData: ObservableObject, Codable, Identifiable, Hashable {
         }
     }
         
-    func newShot(goal: Bool, eightMeter: Bool, location: CGPoint, goalieName: String) -> Shot? {
+    func newShot(goal: Bool, eightMeter: Bool, location: CGPoint, goalieName: String, quarter: Int) -> Shot? {
         if location.y > maxYCoordinate || location.y < minYCoordinate {
             return nil
         }
         let grid = whichGrid(coordinate: location)
         // Bounds and grid are decided in screen space above; the coordinate is
         // persisted normalized so it renders correctly on any screen size.
-        let shot = Shot(wasItAGoal: goal, wasItEightMeter: eightMeter, gridItCameFrom: grid, coordinate: normalize(location), goalieName: goalieName)
+        let shot = Shot(wasItAGoal: goal, wasItEightMeter: eightMeter, gridItCameFrom: grid, coordinate: normalize(location), goalieName: goalieName, quarter: quarter)
         runningScore += shot.calculateScore()
         totalShots += 1
         
