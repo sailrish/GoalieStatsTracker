@@ -205,6 +205,15 @@ private struct SeasonRow: View {
             }
         }
         .onAppear { beginEditing() }
+        // Rows are identified by position, so reordering hands this row a
+        // different season while its editing state stays put. Adopt the new
+        // name so the field shows what's actually at this position. A change
+        // that merely echoes what's being typed is ignored, which keeps
+        // `originalName` pointing at the name editing started from.
+        .onChange(of: season) { newValue in
+            guard newValue != draftName.trimmingCharacters(in: .whitespaces) else { return }
+            beginEditing(with: newValue)
+        }
         .onChange(of: isEditing) { editing in
             if editing {
                 beginEditing()
@@ -222,9 +231,9 @@ private struct SeasonRow: View {
         }
     }
 
-    private func beginEditing() {
-        originalName = season
-        draftName = season
+    private func beginEditing(with name: String? = nil) {
+        originalName = name ?? season
+        draftName = name ?? season
     }
 
     private func finishEditing() {
