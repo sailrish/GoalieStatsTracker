@@ -328,6 +328,12 @@ class ShotsData: ObservableObject, Codable, Identifiable, Hashable {
         return shots(forGoalie: goalieName).count
     }
 
+    /// The quarters this goalie faced at least one shot in. Empty if they faced
+    /// none, which callers showing a filter should read as "no basis to filter".
+    func quartersPlayed(forGoalie goalieName: String) -> Set<Int> {
+        return Set(shots(forGoalie: goalieName).map { $0.quarter })
+    }
+
     func saves(forGoalie goalieName: String) -> Int {
         return shots(forGoalie: goalieName).filter { $0.wasItAGoal == false }.count
     }

@@ -65,10 +65,11 @@ struct RecordStatsView: View {
         _gameStore = gameStore
         _shotsData = State(initialValue: shotsData)
         _pointsOn12Meter = State(initialValue: shotsData.shots)
-        _selectedGoalieName = State(initialValue: shotsData.goalies.first ?? ShotsData.defaultGoalieName)
-        // A past game starts with every quarter shown; tapping a bubble filters
-        // that quarter's shots out.
-        _selectedQuarters = State(initialValue: [1, 2, 3, 4])
+        let goalie = shotsData.goalies.first ?? ShotsData.defaultGoalieName
+        _selectedGoalieName = State(initialValue: goalie)
+        // A past game opens showing just the quarters this goalie actually
+        // played; tapping a bubble filters any quarter in or out from there.
+        _selectedQuarters = State(initialValue: Self.defaultQuarters(forGoalie: goalie, in: shotsData))
         loadPastView = true
         disable = true
         self.popToSeasonsView = popToSeasonsView
@@ -145,6 +146,13 @@ struct RecordStatsView: View {
                     }
                     .navigationBarBackButtonHidden(loadPastView == false)
                 }
+            }
+            .onChange(of: selectedGoalieName) { goalie in
+                // Selecting a goalie always snaps the filter back to the
+                // quarters they played. Widening it is a one-off look at that
+                // goalie, not a preference that should follow them around.
+                guard loadPastView else { return }
+                selectedQuarters = Self.defaultQuarters(forGoalie: goalie, in: shotsData)
             }
 
             if showSavePopup {
@@ -230,6 +238,14 @@ struct RecordStatsView: View {
                 // don't surface errors during a one-time upgrade
             }
         }
+    }
+
+    /// The quarters to light up when a goalie is first shown in a past game:
+    /// the ones they faced shots in. A goalie with no shots has nothing to
+    /// filter by, so they get all four rather than an empty field.
+    private static func defaultQuarters(forGoalie goalie: String, in shotsData: ShotsData) -> Set<Int> {
+        let played = shotsData.quartersPlayed(forGoalie: goalie)
+        return played.isEmpty ? [1, 2, 3, 4] : played
     }
 
     func persistGoalieChange() {
