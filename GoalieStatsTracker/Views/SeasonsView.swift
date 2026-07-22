@@ -138,12 +138,15 @@ struct SeasonsView: View {
             }
         }
 
-        return goalieNames.map { goalie in
-            let percentages = seasonGames
-                .filter { $0.totalShots(forGoalie: goalie) > 0 }
-                .map { $0.savePercentage(forGoalie: goalie) }
-            let average = percentages.reduce(0, +) / percentages.count
-            return GoalieSeasonStat(goalieName: goalie, savePercentage: average)
+        // The season figure is every save divided by every shot faced, not the
+        // mean of the per-game percentages: a 2-shot game shouldn't weigh as
+        // much as a 40-shot one.
+        return goalieNames.compactMap { goalie in
+            let shots = seasonGames.reduce(0) { $0 + $1.totalShots(forGoalie: goalie) }
+            guard shots > 0 else { return nil }
+            let saves = seasonGames.reduce(0) { $0 + $1.saves(forGoalie: goalie) }
+            let percentage = Int((Float(saves) / Float(shots)) * 100)
+            return GoalieSeasonStat(goalieName: goalie, savePercentage: percentage)
         }
     }
 
